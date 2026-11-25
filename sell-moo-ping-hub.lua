@@ -1,4 +1,4 @@
--- Sell Moo Ping Hub v1.2 (Unfreeze & Full Free Roam Edition)
+-- Sell Moo Ping Hub v1.3 (Auto Phone Orders & Haggling Edition)
 -- Game: [UPD] Sell Moo Ping 🍢 (PlaceId: 131921813450863)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -16,6 +16,7 @@ local DeliveryAction = MooRemotes:WaitForChild("DeliveryAction")
 local ClubSwing = MooRemotes:WaitForChild("ClubSwing")
 local GoHome = MooRemotes:WaitForChild("GoHome")
 local HoverBoard = MooRemotes:WaitForChild("HoverBoard")
+local Phone = MooRemotes:WaitForChild("Phone")
 local Daily = MooRemotes:WaitForChild("Daily")
 local Playtime = MooRemotes:WaitForChild("Playtime")
 local FreeReward = MooRemotes:WaitForChild("FreeReward")
@@ -31,6 +32,7 @@ end
 
 local state = {
     alive = true,
+    autoPhone = true,   -- รับออเดอร์มือถือ + ต่อราคาให้อัตโนมัติ
     autoGrill = true,
     remoteGrill = true, -- ย่างระยะไกล ไม่ต้องยืนหน้าร้าน
     autoDelivery = true,
@@ -90,8 +92,8 @@ gui.Parent = CoreGui
 
 local mf = Instance.new("Frame")
 mf.Name = "MainFrame"
-mf.Size = UDim2.new(0, 320, 0, 390)
-mf.Position = UDim2.new(1, -340, 1, -410)
+mf.Size = UDim2.new(0, 320, 0, 420)
+mf.Position = UDim2.new(1, -340, 1, -440)
 mf.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 mf.BorderSizePixel = 0
 mf.Active = true
@@ -113,7 +115,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🍢 Sell Moo Ping Hub v1.2"
+titleBar.Text = "  🍢 Sell Moo Ping Hub v1.3"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -248,6 +250,7 @@ local pMain = createTab(1, "🍢 ออโต้หมูปิ้ง")
 local pWarp = createTab(2, "🌀 วาร์ป & ตัวละคร")
 
 -- Tab 1: Auto Grill & Automation
+addToggle(pMain, "Auto Phone (รับออเดอร์มือถือ + เพิ่มราคา)", "autoPhone")
 addToggle(pMain, "Auto Grill (ย่าง & เก็บหมูปิ้ง)", "autoGrill")
 addToggle(pMain, "Remote Grill (ย่างได้ทุกที่ เดินได้อิสระ)", "remoteGrill")
 addToggle(pMain, "Auto Delivery (ส่งเดลิเวอรี่)", "autoDelivery")
@@ -299,25 +302,72 @@ for i = 1, 8 do
     end)
 end
 
--- Continuous Anti-Freeze / Anti-Lock Loop (Runs on Heartbeat)
+-- 1. Auto Phone Order Listener (Remote Hook)
+Phone.OnClientEvent:Connect(function(action, data)
+    if not state.alive or not state.autoPhone then return end
+    if action == "offer" and type(data) == "table" and data.id then
+        task.wait(0.3)
+        -- First try to negotiate for more money ("more")
+        pcall(function()
+            Phone:FireServer("more", data.id)
+        end)
+        task.wait(1.2)
+        -- Then accept the highest offer ("accept")
+        pcall(function()
+            Phone:FireServer("accept", data.id)
+        end)
+        notify("📞 Phone Order", "รับออเดอร์ล็อตใหญ่เรียบร้อย!")
+    elseif action == "raised" and type(data) == "table" and data.id then
+        task.wait(0.3)
+        pcall(function()
+            Phone:FireServer("accept", data.id)
+        end)
+        notify("📞 Phone Order", "ต่อราคาสำเร็จ! กดยืนยันรับเงินแล้ว")
+    end
+end)
+
+-- 2. Backup Phone UI Auto-Clicker
+task.spawn(function()
+    while state.alive do
+        task.wait(0.5)
+        if state.autoPhone then
+            local pg = lp:FindFirstChild("PlayerGui")
+            local phoneGui = pg and pg:FindFirstChild("Phone")
+            if phoneGui and phoneGui.Enabled then
+                for _, b in ipairs(phoneGui:GetDescendants()) do
+                    if b:IsA("TextButton") and b.Visible then
+                        if b.Text:find("ตกลง") or b.Text:find("accept") then
+                            pcall(function()
+                                if firesignal then
+                                    firesignal(b.Activated)
+                                elseif b.MouseButton1Click then
+                                    b.MouseButton1Click:Fire()
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- 3. Continuous Anti-Freeze / Anti-Lock Loop (Runs on Heartbeat)
 RunService.Heartbeat:Connect(function()
     if not state.alive then return end
 
     local hrp = getHRP()
     local hum = getHumanoid()
 
-    -- 1. Enforce Unanchor so game never freezes player
     if hrp and hrp.Anchored then
         hrp.Anchored = false
     end
 
-    -- 2. Enforce Controls Enabled
     local ctrl = getControls()
     if ctrl and not ctrl.enabled then
         pcall(function() ctrl:Enable() end)
     end
 
-    -- 3. Enforce Normal Camera
     if state.remoteGrill then
         pcall(function()
             RunService:UnbindFromRenderStep("MooGrillCam")
@@ -333,13 +383,12 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- 4. Speed Boost
     if hum and state.speedBoost and hum.WalkSpeed < 35 then
         hum.WalkSpeed = 38
     end
 end)
 
--- Main Auto Grill Loop (Never burns, Remote Anywhere)
+-- 4. Main Auto Grill Loop
 task.spawn(function()
     while state.alive do
         task.wait(0.2)
@@ -348,14 +397,12 @@ task.spawn(function()
         local pad = stall and stall:FindFirstChild("CookGrillPad")
 
         if state.autoGrill and stall then
-            -- Bypass distance check by pulsing simulated pad touch
             if state.remoteGrill and hrp and pad then
                 pcall(function()
                     firetouchinterest(hrp, pad, 0)
                 end)
             end
 
-            -- Grill & Collect slots
             if stall:FindFirstChild("Hitboxes") then
                 for _, slot in ipairs(stall.Hitboxes:GetChildren()) do
                     local num = tonumber(slot.Name:match("%d+"))
@@ -373,16 +420,14 @@ task.spawn(function()
     end
 end)
 
--- Delivery & Thief Loop
+-- 5. Delivery & Thief Loop
 task.spawn(function()
     while state.alive do
         task.wait(0.8)
-        -- Auto Delivery
         if state.autoDelivery then
             pcall(function() DeliveryAction:InvokeServer("load") end)
             pcall(function() DeliveryAction:InvokeServer("sell") end)
         end
-        -- Auto Bonk Thief
         if state.autoThief then
             local thieves = workspace:FindFirstChild("Thieves")
             if thieves then
@@ -394,7 +439,7 @@ task.spawn(function()
     end
 end)
 
--- Rewards Loop
+-- 6. Rewards Loop
 task.spawn(function()
     while state.alive do
         task.wait(3.0)
@@ -413,4 +458,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Sell Moo Ping Hub v1.2", "ปลดล็อกตัวละครแล้ว! เดิน ขี่รถ เล่นได้ตามปกติเลยครับ")
+notify("Sell Moo Ping Hub v1.3", "เปิดระบบ Auto Phone Order แล้ว! มีออเดอร์โทรศัพท์เข้ารับให้อัตโนมัติ")
