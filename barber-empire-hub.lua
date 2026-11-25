@@ -1,4 +1,4 @@
--- Barber Empire Hub v1.0 (All-in-One)
+-- Barber Empire Hub v1.1 (All-in-One)
 -- Game: [💈] Barber Empire (PlaceId: 129516203408961)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -88,7 +88,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  💈 Barber Empire Hub v1.0"
+titleBar.Text = "  💈 Barber Empire Hub v1.1"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -281,21 +281,49 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Main Auto Cut 5-Star Loop
+-- Helper: find waiting/inChair customer token via getgc
+local processedTokens = {}
+local function findActiveCustomerToken()
+    if not getgc then return nil end
+    for _, v in ipairs(getgc(true)) do
+        if type(v) == "table" then
+            local tok = rawget(v, "token")
+            local st = rawget(v, "state")
+            if type(tok) == "number" and tok > 0 and not processedTokens[tok] then
+                if st == "inChair" or st == "waiting" then
+                    return tok, v
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Main Auto Cut 5-Star Loop (Supports both existing Chair/Waiting customers & NewCustomer)
 task.spawn(function()
     while state.alive do
         if state.autoCut then
-            local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
-            if ok and type(cust) == "table" and cust.token then
-                pcall(function() CutStart:FireServer(cust.token) end)
+            local tok, custObj = findActiveCustomerToken()
+            if not tok then
+                local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
+                if ok and type(cust) == "table" and type(cust.token) == "number" and not processedTokens[cust.token] then
+                    tok = cust.token
+                    custObj = cust
+                end
+            end
+
+            if tok then
+                processedTokens[tok] = true
+                pcall(function() CutStart:FireServer(tok) end)
                 task.wait(2.2)
                 if not state.alive then break end
+                local coopFlag = (type(custObj) == "table" and rawget(custObj, "coop") == true) or false
                 pcall(function()
-                    PayCut:FireServer(cust.token, 5, { cover = 1, coop = false, product = false, design = false })
+                    PayCut:FireServer(tok, 5, { cover = 1, coop = coopFlag, product = false, design = false })
                 end)
-                task.wait(0.4)
+                task.wait(0.8)
             else
-                task.wait(1.0)
+                task.wait(1.5)
             end
         else
             task.wait(0.5)
@@ -342,4 +370,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Barber Empire Hub v1.0", "โหลดสำเร็จ! Auto Cut 5 ดาวกำลังปั๊มเงินให้แล้ว")
+notify("Barber Empire Hub v1.1", "อัปเดต Auto Cut 5★ (ตัดทั้งลูกค้าในเก้าอี้+เรียกใหม่) แล้ว!")
