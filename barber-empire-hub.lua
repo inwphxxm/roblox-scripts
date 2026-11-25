@@ -1,4 +1,4 @@
--- Barber Empire Hub v1.3 (Clean Auto Cut 5-Star + All-in-One)
+-- Barber Empire Hub v2.0 (Real 5-Star Auto Call & Cut)
 -- Game: [💈] Barber Empire (PlaceId: 129516203408961)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -11,13 +11,13 @@ local UserInputService = game:GetService("UserInputService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local lp = Players.LocalPlayer
-local Remotes = RS:WaitForChild("HairLab"):WaitForChild("Remotes")
+local HairLab = RS:WaitForChild("HairLab")
+local Remotes = HairLab:WaitForChild("Remotes")
 local NewCustomer = Remotes:WaitForChild("NewCustomer")
 local CutStart = Remotes:WaitForChild("CutStart")
 local PayCut = Remotes:WaitForChild("PayCut")
 local TipJar = Remotes:WaitForChild("TipJar")
-local Goals = Remotes:WaitForChild("Goals")
-local PostVideo = Remotes:WaitForChild("PostVideo")
+local HairCuts = require(HairLab:WaitForChild("HairCuts"))
 
 -- Cleanup old instance
 local oldGui = CoreGui:FindFirstChild("BarberEmpireHubGui")
@@ -57,6 +57,45 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
+-- Override HairCuts.styleStars so ShopClient ALWAYS evaluates every cut as 5 Stars!
+if not env.BarberStyleStarsHooked then
+    env.BarberStyleStarsHooked = true
+    local origStyleStars = HairCuts.styleStars
+    if type(origStyleStars) == "function" then
+        if hookfunction then
+            hookfunction(origStyleStars, function(...)
+                if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
+                    return 5
+                end
+                return origStyleStars(...)
+            end)
+        end
+        HairCuts.styleStars = function(...)
+            if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
+                return 5
+            end
+            return origStyleStars(...)
+        end
+    end
+end
+
+-- Force 5-Star Hook on PayCut (__namecall)
+if not env.BarberPayCutHooked and hookmetamethod and getnamecallmethod and newcclosure then
+    env.BarberPayCutHooked = true
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" and self == PayCut and env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
+            local args = {...}
+            if type(args[1]) == "number" then
+                args[2] = 5
+                return oldNamecall(self, unpack(args))
+            end
+        end
+        return oldNamecall(self, ...)
+    end))
+end
+
 -- GUI Setup
 local gui = Instance.new("ScreenGui")
 gui.Name = "BarberEmpireHubGui"
@@ -88,7 +127,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  💈 Barber Empire Hub v1.3"
+titleBar.Text = "  💈 Barber Empire Hub v2.0"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -223,19 +262,24 @@ local pFarm = createTab(1, "✂️ ฟาร์มตัดผม")
 local pUtil = createTab(2, "⚡ เสริม/ตัวละคร")
 
 -- Tab 1: Barber Farm
-addToggle(pFarm, "Auto Cut 5★ (ตัดผมส่ง 5 ดาว)", "autoCut")
+addToggle(pFarm, "Auto Cut 5★ (เรียกลูกค้า+ตัด 5 ดาว)", "autoCut")
 addToggle(pFarm, "Auto Coins (ดูดเหรียญตกพื้น)", "autoCoins")
 addToggle(pFarm, "Auto Easter Eggs (เก็บไข่ออโต้)", "autoEggs")
 addToggle(pFarm, "Auto TipJar (เก็บกระปุกทิป)", "autoTip")
 
-addButton(pFarm, "✂️ ตัดผม 5★ ทันที 1 รอบ", Color3.fromRGB(48, 64, 92), function()
+addButton(pFarm, "✂️ เรียกลูกค้าที่รอ + ตัด 5★ ทันที", Color3.fromRGB(48, 64, 92), function()
     task.spawn(function()
-        local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
-        if ok and type(cust) == "table" and cust.token then
-            CutStart:FireServer(cust.token)
-            task.wait(2.1)
-            PayCut:FireServer(cust.token, 5, { cover = 1, coop = false, product = false, design = false })
-            notify("Barber Empire", "ส่งงาน 5 ดาวรับเงินแล้ว!")
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Enabled and d.ActionText:lower():find("call") then
+                local hrp = getHRP()
+                local part = d.Parent and d.Parent:IsA("BasePart") and d.Parent or d.Parent:FindFirstChildWhichIsA("BasePart", true)
+                if hrp and part then
+                    hrp.CFrame = part.CFrame + Vector3.new(0, 2, 3)
+                    task.wait(0.15)
+                end
+                pcall(function() fireproximityprompt(d) end)
+                break
+            end
         end
     end)
 end)
@@ -281,70 +325,61 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Force 5-Star Hook on PayCut (install once)
-if not env.BarberPayCutHooked and hookmetamethod and getnamecallmethod and newcclosure then
-    env.BarberPayCutHooked = true
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if method == "FireServer" and self == PayCut and env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
-            local args = {...}
-            if type(args[1]) == "number" then
-                args[2] = 5
-                return oldNamecall(self, unpack(args))
-            end
-        end
-        return oldNamecall(self, ...)
-    end))
-end
-
--- Helper: find waiting/inChair customer token via getgc
-local processedTokens = {}
-local function findActiveCustomerToken()
-    if not getgc then return nil end
-    for _, v in ipairs(getgc(true)) do
-        if type(v) == "table" then
-            local tok = rawget(v, "token")
-            local st = rawget(v, "state")
-            if type(tok) == "number" and tok > 0 and not processedTokens[tok] then
-                if st == "inChair" or st == "waiting" then
-                    return tok, v
-                end
-            end
+-- Helper: Find "Call to chair" prompt
+local function findCallPrompt()
+    for _, d in ipairs(workspace:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and d.Enabled and d.ActionText:lower():find("call") then
+            return d
         end
     end
     return nil
 end
 
--- Main Auto Cut 5-Star Loop (Supports both existing Waiting customers & NewCustomer, no forced DONE! on manual cut)
+-- Main Auto Call + Auto Cut 5-Star Loop
 task.spawn(function()
     while state.alive do
         if state.autoCut then
             local cutHud = lp.PlayerGui:FindFirstChild("CutHUD")
             if cutHud and cutHud.Enabled then
-                task.wait(0.8)
-            else
-                local tok, custObj = findActiveCustomerToken()
-                if not tok then
-                    local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
-                    if ok and type(cust) == "table" and type(cust.token) == "number" and not processedTokens[cust.token] then
-                        tok = cust.token
-                        custObj = cust
-                    end
+                -- Wait for server cut timer (~2.3s), then click DONE! (HairCuts.styleStars returns 5!)
+                task.wait(2.4)
+                if not state.alive or not state.autoCut then continue end
+                local doneBtn = cutHud:FindFirstChild("Done", true)
+                local face = doneBtn and doneBtn:FindFirstChild("Face")
+                if face and face:IsA("GuiButton") and face.Visible and firesignal then
+                    pcall(function() firesignal(face.Activated) end)
                 end
-
-                if tok then
-                    processedTokens[tok] = true
-                    pcall(function() CutStart:FireServer(tok) end)
-                    task.wait(3.0)
-                    if not state.alive then break end
-                    local coopFlag = (type(custObj) == "table" and rawget(custObj, "coop") == true) or false
-                    pcall(function()
-                        PayCut:FireServer(tok, 5, { cover = 1, coop = coopFlag, product = false, design = false })
-                    end)
-                    task.wait(1.0)
+                task.wait(1.5)
+            else
+                -- 1. Check if waiting customer is in chairs ("Call to chair")
+                local callPrompt = findCallPrompt()
+                if callPrompt and fireproximityprompt then
+                    local hrp = getHRP()
+                    local part = callPrompt.Parent and (callPrompt.Parent:IsA("BasePart") and callPrompt.Parent or callPrompt.Parent:FindFirstChildWhichIsA("BasePart", true))
+                    if hrp and part then
+                        local dist = (hrp.Position - part.Position).Magnitude
+                        if dist > 8 then
+                            hrp.CFrame = part.CFrame + Vector3.new(0, 2, 3)
+                            task.wait(0.15)
+                        end
+                    end
+                    callPrompt.HoldDuration = 0
+                    pcall(function() fireproximityprompt(callPrompt) end)
+                    task.wait(1.2)
                 else
-                    task.wait(1.5)
+                    -- 2. If no waiting customers, try NewCustomer
+                    local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
+                    if ok and type(cust) == "table" and type(cust.token) == "number" then
+                        pcall(function() CutStart:FireServer(cust.token) end)
+                        task.wait(2.5)
+                        if not state.alive then break end
+                        pcall(function()
+                            PayCut:FireServer(cust.token, 5, { cover = 1, coop = cust.coop == true, product = false, design = false })
+                        end)
+                        task.wait(1.0)
+                    else
+                        task.wait(1.5)
+                    end
                 end
             end
         else
@@ -392,4 +427,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Barber Empire Hub v1.3", "โหลดสำเร็จ! ปรับ Auto Cut ให้ไม่แย่งกด DONE! แล้ว")
+notify("Barber Empire Hub v2.0", "อัปเกรดแล้ว! เรียกลูกค้า + ตัด 5 ดาวเต็มให้เองอัตโนมัติ")
