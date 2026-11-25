@@ -1,4 +1,4 @@
--- Barber Empire Hub v2.0 (Real 5-Star Auto Call & Cut)
+-- Barber Empire Hub v2.1 (Guaranteed 5-Star Auto Call & Cut)
 -- Game: [💈] Barber Empire (PlaceId: 129516203408961)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -57,25 +57,46 @@ local function getHumanoid()
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
--- Override HairCuts.styleStars so ShopClient ALWAYS evaluates every cut as 5 Stars!
-if not env.BarberStyleStarsHooked then
-    env.BarberStyleStarsHooked = true
+-- Override HairCuts.score / freestyleScore / styleStars / dyeShare so EVERY cut is 5 Stars!
+if not env.BarberScoreHooked then
+    env.BarberScoreHooked = true
+    local function hookStarTableFn(fnName)
+        local orig = HairCuts[fnName]
+        if type(orig) ~= "function" then return end
+        local wrapper = function(...)
+            local res = orig(...)
+            if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
+                if type(res) == "table" then
+                    res.stars = 5
+                end
+            end
+            return res
+        end
+        if hookfunction then hookfunction(orig, wrapper) end
+        HairCuts[fnName] = wrapper
+    end
+
+    hookStarTableFn("score")
+    hookStarTableFn("freestyleScore")
+
     local origStyleStars = HairCuts.styleStars
     if type(origStyleStars) == "function" then
-        if hookfunction then
-            hookfunction(origStyleStars, function(...)
-                if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
-                    return 5
-                end
-                return origStyleStars(...)
-            end)
-        end
-        HairCuts.styleStars = function(...)
-            if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
-                return 5
-            end
+        local wStyle = function(...)
+            if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then return 5 end
             return origStyleStars(...)
         end
+        if hookfunction then hookfunction(origStyleStars, wStyle) end
+        HairCuts.styleStars = wStyle
+    end
+
+    local origDyeShare = HairCuts.dyeShare
+    if type(origDyeShare) == "function" then
+        local wDye = function(...)
+            if env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then return 1 end
+            return origDyeShare(...)
+        end
+        if hookfunction then hookfunction(origDyeShare, wDye) end
+        HairCuts.dyeShare = wDye
     end
 end
 
@@ -127,7 +148,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  💈 Barber Empire Hub v2.0"
+titleBar.Text = "  💈 Barber Empire Hub v2.1"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -427,4 +448,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Barber Empire Hub v2.0", "อัปเกรดแล้ว! เรียกลูกค้า + ตัด 5 ดาวเต็มให้เองอัตโนมัติ")
+notify("Barber Empire Hub v2.1", "ปลดล็อก 5 ดาวเต็มทุกหัว (score + dye + style) แล้ว!")
