@@ -1,4 +1,4 @@
--- Anime Nexus RNG Hub v1.0 (All-in-One)
+-- Anime Nexus RNG Hub v1.1 (Auto Wiki Codes + Fast Roll + Collectibles)
 -- Game: [UPD] Anime Nexus RNG : EMINENCE IN SHADOW (PlaceId: 85829558919037)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -18,6 +18,15 @@ local Wheelspinner = Remotes:WaitForChild("Wheelspinner")
 local ClaimIndexReward = Remotes:WaitForChild("ClaimIndexReward")
 local Battlepass = Remotes:WaitForChild("Battlepass")
 local Questline = Remotes:WaitForChild("Questline")
+local RedeemCode = Remotes:FindFirstChild("RedeemCode", true)
+local NWWikiCodes = Remotes:FindFirstChild("NWWikiCodes", true)
+local Daily = Remotes:FindFirstChild("Daily", true)
+local GroupRewards = Remotes:FindFirstChild("GroupRewards", true)
+local NWLevelRewards = Remotes:FindFirstChild("NWLevelRewards", true)
+local ClaimQuest = Remotes:FindFirstChild("ClaimQuest", true)
+local ClaimMilestone = Remotes:FindFirstChild("ClaimMilestone", true)
+local ClaimMainMilestone = Remotes:FindFirstChild("ClaimMainMilestone", true)
+local ClaimAFKMilestone = Remotes:FindFirstChild("ClaimAFKMilestone", true)
 
 -- Cleanup old instance
 local oldGui = CoreGui:FindFirstChild("AnimeNexusRngHubGui")
@@ -88,7 +97,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🌑 Anime Nexus RNG Hub v1.0"
+titleBar.Text = "  🌑 Anime Nexus RNG Hub v1.1"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -265,11 +274,41 @@ addButton(pRoll, "🗺️ กวาดเก็บของลับทั้ง
     end)
 end)
 
-addButton(pRoll, "🎁 กดรับรางวัล Index/BP/Quest ทันที", Color3.fromRGB(44, 82, 58), function()
+addButton(pRoll, "🎟️ เติมโค้ดฟรีทั้งหมดจากเซิร์ฟเวอร์ (Auto Wiki Codes)", Color3.fromRGB(72, 54, 112), function()
+    task.spawn(function()
+        if not NWWikiCodes or not RedeemCode then
+            notify("Wiki Codes", "ไม่พบ Remote โค้ดในเซิร์ฟเวอร์นี้")
+            return
+        end
+        local ok, res = pcall(function() return NWWikiCodes:InvokeServer() end)
+        if ok and type(res) == "table" and type(res.codes) == "table" then
+            local usedCount = 0
+            for _, c in ipairs(res.codes) do
+                if not c.used and c.code then
+                    pcall(function() RedeemCode:FireServer(c.code) end)
+                    usedCount += 1
+                    task.wait(0.8)
+                end
+            end
+            notify("Wiki Codes", "เติมโค้ดใหม่ทั้งหมด " .. usedCount .. " โค้ดแล้ว!")
+        else
+            notify("Wiki Codes", "ดึงรายการโค้ดไม่สำเร็จ")
+        end
+    end)
+end)
+
+addButton(pRoll, "🎁 กดรับรางวัล Index/BP/Quest/Daily ทันที", Color3.fromRGB(44, 82, 58), function()
     pcall(function() ClaimIndexReward:FireServer() end)
     pcall(function() Battlepass:FireServer("claimAll") end)
     pcall(function() Questline:FireServer("claimAll") end)
-    notify("Anime Nexus RNG", "ส่งคำสั่งรับรางวัลแล้ว!")
+    if Daily then pcall(function() Daily:FireServer() end) end
+    if GroupRewards then pcall(function() GroupRewards:FireServer() end) end
+    if NWLevelRewards then pcall(function() NWLevelRewards:FireServer() end) end
+    if ClaimQuest then pcall(function() ClaimQuest:FireServer() end) end
+    if ClaimMilestone then pcall(function() ClaimMilestone:FireServer() end) end
+    if ClaimMainMilestone then pcall(function() ClaimMainMilestone:FireServer() end) end
+    if ClaimAFKMilestone then pcall(function() ClaimAFKMilestone:FireServer() end) end
+    notify("Anime Nexus RNG", "ส่งคำสั่งรับรางวัลทั้งหมดแล้ว!")
 end)
 
 -- Tab 2: Movement & Anti-AFK
@@ -367,4 +406,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Anime Nexus RNG Hub v1.0", "โหลดสำเร็จ! กด RightShift เพื่อซ่อน/แสดง")
+notify("Anime Nexus RNG Hub v1.1", "อัปเกรดแล้ว! เพิ่มระบบเติมโค้ดอัตโนมัติ + รับของฟรีครบชุด")
