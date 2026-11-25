@@ -23,3 +23,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scrip
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/barber-empire-hub.lua"))()
 ```
+
+## Anime Nexus RNG Hub v1.0 (`[🌑UPD] Anime Nexus RNG : EMINENCE IN SHADOW`)
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/anime-nexus-rng-hub.lua"))()
+```
