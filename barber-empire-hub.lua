@@ -1,4 +1,4 @@
--- Barber Empire Hub v1.1 (All-in-One)
+-- Barber Empire Hub v1.2 (Force 5-Star + Auto Finish + All-in-One)
 -- Game: [💈] Barber Empire (PlaceId: 129516203408961)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -88,7 +88,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  💈 Barber Empire Hub v1.1"
+titleBar.Text = "  💈 Barber Empire Hub v1.2"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -281,6 +281,41 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Force 5-Star Hook on PayCut (install once)
+if not env.BarberPayCutHooked and hookmetamethod and getnamecallmethod and newcclosure then
+    env.BarberPayCutHooked = true
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" and self == PayCut and env.BarberHubState and env.BarberHubState.alive and env.BarberHubState.autoCut then
+            local args = {...}
+            if type(args[1]) == "number" then
+                args[2] = 5
+                return oldNamecall(self, unpack(args))
+            end
+        end
+        return oldNamecall(self, ...)
+    end))
+end
+
+-- Auto Click DONE! when CutHUD is open
+task.spawn(function()
+    while state.alive do
+        task.wait(0.6)
+        if state.autoCut and firesignal then
+            local cutHud = lp.PlayerGui:FindFirstChild("CutHUD")
+            if cutHud and cutHud.Enabled then
+                local doneBtn = cutHud:FindFirstChild("Done", true)
+                local face = doneBtn and doneBtn:FindFirstChild("Face")
+                if face and face:IsA("GuiButton") and face.Visible then
+                    pcall(function() firesignal(face.Activated) end)
+                    task.wait(1.5)
+                end
+            end
+        end
+    end
+end)
+
 -- Helper: find waiting/inChair customer token via getgc
 local processedTokens = {}
 local function findActiveCustomerToken()
@@ -303,27 +338,32 @@ end
 task.spawn(function()
     while state.alive do
         if state.autoCut then
-            local tok, custObj = findActiveCustomerToken()
-            if not tok then
-                local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
-                if ok and type(cust) == "table" and type(cust.token) == "number" and not processedTokens[cust.token] then
-                    tok = cust.token
-                    custObj = cust
-                end
-            end
-
-            if tok then
-                processedTokens[tok] = true
-                pcall(function() CutStart:FireServer(tok) end)
-                task.wait(2.2)
-                if not state.alive then break end
-                local coopFlag = (type(custObj) == "table" and rawget(custObj, "coop") == true) or false
-                pcall(function()
-                    PayCut:FireServer(tok, 5, { cover = 1, coop = coopFlag, product = false, design = false })
-                end)
-                task.wait(0.8)
+            local cutHud = lp.PlayerGui:FindFirstChild("CutHUD")
+            if cutHud and cutHud.Enabled then
+                task.wait(0.6)
             else
-                task.wait(1.5)
+                local tok, custObj = findActiveCustomerToken()
+                if not tok then
+                    local ok, cust = pcall(function() return NewCustomer:InvokeServer() end)
+                    if ok and type(cust) == "table" and type(cust.token) == "number" and not processedTokens[cust.token] then
+                        tok = cust.token
+                        custObj = cust
+                    end
+                end
+
+                if tok then
+                    processedTokens[tok] = true
+                    pcall(function() CutStart:FireServer(tok) end)
+                    task.wait(2.2)
+                    if not state.alive then break end
+                    local coopFlag = (type(custObj) == "table" and rawget(custObj, "coop") == true) or false
+                    pcall(function()
+                        PayCut:FireServer(tok, 5, { cover = 1, coop = coopFlag, product = false, design = false })
+                    end)
+                    task.wait(0.8)
+                else
+                    task.wait(1.5)
+                end
             end
         else
             task.wait(0.5)
@@ -370,4 +410,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Barber Empire Hub v1.1", "อัปเดต Auto Cut 5★ (ตัดทั้งลูกค้าในเก้าอี้+เรียกใหม่) แล้ว!")
+notify("Barber Empire Hub v1.2", "เปิด Force 5★ + กด DONE! อัตโนมัติแล้ว!")
