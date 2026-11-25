@@ -17,3 +17,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scrip
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/sell-moo-ping-hub.lua"))()
 ```
+
+## Barber Empire Hub v1.0 (`[💈] Barber Empire`)
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/barber-empire-hub.lua"))()
+```
