@@ -1,4 +1,4 @@
--- Sell Moo Ping Hub v1.3 (Auto Phone Orders & Haggling Edition)
+-- Sell Moo Ping Hub v1.4 (All Grills: Stall + CookGrill + HouseGrill)
 -- Game: [UPD] Sell Moo Ping 🍢 (PlaceId: 131921813450863)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -33,8 +33,8 @@ end
 local state = {
     alive = true,
     autoPhone = true,   -- รับออเดอร์มือถือ + ต่อราคาให้อัตโนมัติ
-    autoGrill = true,
-    remoteGrill = true, -- ย่างระยะไกล ไม่ต้องยืนหน้าร้าน
+    autoGrill = true,   -- ปิ้งและเก็บทุกเตา (หน้าร้าน + เตาในครัว 48 ช่อง + เตาบ้าน)
+    remoteGrill = false, -- เปิดเมื่ออยากย่างระยะไกลโดยไม่ยืนที่เตา
     autoDelivery = true,
     autoThief = true,
     autoRewards = true,
@@ -115,7 +115,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🍢 Sell Moo Ping Hub v1.3"
+titleBar.Text = "  🍢 Sell Moo Ping Hub v1.4"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -388,33 +388,50 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 4. Main Auto Grill Loop
+-- 4. Main Auto Grill Loop (Supports Stall + CookGrill + HouseGrill)
+local function processGrillTarget(target, pad)
+    if not target then return end
+    local hrp = getHRP()
+    if state.remoteGrill and hrp and pad then
+        pcall(function()
+            firetouchinterest(hrp, pad, 0)
+        end)
+    end
+    local hb = target:FindFirstChild("Hitboxes")
+    if hb then
+        for _, slot in ipairs(hb:GetChildren()) do
+            local num = tonumber(slot.Name:match("%d+"))
+            local slotState = slot:GetAttribute("State")
+            if num then
+                if slotState == "cooked" then
+                    pcall(function() GrillAction:FireServer(target, num, "collect") end)
+                elseif slotState == "empty" then
+                    pcall(function() GrillAction:FireServer(target, num, "place") end)
+                end
+            end
+        end
+    end
+end
+
 task.spawn(function()
     while state.alive do
         task.wait(0.2)
-        local stall = getMyStall()
-        local hrp = getHRP()
-        local pad = stall and stall:FindFirstChild("CookGrillPad")
-
-        if state.autoGrill and stall then
-            if state.remoteGrill and hrp and pad then
-                pcall(function()
-                    firetouchinterest(hrp, pad, 0)
-                end)
-            end
-
-            if stall:FindFirstChild("Hitboxes") then
-                for _, slot in ipairs(stall.Hitboxes:GetChildren()) do
-                    local num = tonumber(slot.Name:match("%d+"))
-                    local slotState = slot:GetAttribute("State")
-                    if num then
-                        if slotState == "cooked" then
-                            pcall(function() GrillAction:FireServer(stall, num, "collect") end)
-                        elseif slotState == "empty" then
-                            pcall(function() GrillAction:FireServer(stall, num, "place") end)
-                        end
-                    end
+        if state.autoGrill then
+            local stall = getMyStall()
+            if stall then
+                -- เตาหน้าร้าน
+                processGrillTarget(stall, stall:FindFirstChild("CookGrillPad"))
+                -- เตาในครัว (17/48)
+                local cookGrill = stall:FindFirstChild("CookGrill")
+                if cookGrill then
+                    processGrillTarget(cookGrill, stall:FindFirstChild("KitchenGrillPad"))
                 end
+            end
+            -- เตาในบ้าน (HouseKitchen)
+            local hk = workspace:FindFirstChild("HouseKitchen")
+            local houseGrill = hk and hk:FindFirstChild("HouseGrill")
+            if houseGrill then
+                processGrillTarget(houseGrill, nil)
             end
         end
     end
@@ -458,4 +475,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Sell Moo Ping Hub v1.3", "เปิดระบบ Auto Phone Order แล้ว! มีออเดอร์โทรศัพท์เข้ารับให้อัตโนมัติ")
+notify("Sell Moo Ping Hub v1.4", "รองรับเตาในครัว (48 ช่อง) และเตาบ้านแล้ว! ยืนเตาไหนก็ปิ้งออโต้หมด")
