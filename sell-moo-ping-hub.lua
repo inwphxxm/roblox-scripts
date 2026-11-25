@@ -1,4 +1,4 @@
--- Sell Moo Ping Hub v1.0 (All-in-One)
+-- Sell Moo Ping Hub v1.1 (Remote Grill Everywhere Edition)
 -- Game: [UPD] Sell Moo Ping 🍢 (PlaceId: 131921813450863)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
@@ -31,6 +32,7 @@ end
 local state = {
     alive = true,
     autoGrill = true,
+    remoteGrill = true, -- ย่างระยะไกล ไม่ต้องยืนหน้าร้าน กล้องไม่ล็อก
     autoDelivery = true,
     autoThief = true,
     autoRewards = true,
@@ -79,8 +81,8 @@ gui.Parent = CoreGui
 
 local mf = Instance.new("Frame")
 mf.Name = "MainFrame"
-mf.Size = UDim2.new(0, 320, 0, 370)
-mf.Position = UDim2.new(1, -340, 1, -390)
+mf.Size = UDim2.new(0, 320, 0, 390)
+mf.Position = UDim2.new(1, -340, 1, -410)
 mf.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 mf.BorderSizePixel = 0
 mf.Active = true
@@ -102,7 +104,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🍢 Sell Moo Ping Hub v1.0"
+titleBar.Text = "  🍢 Sell Moo Ping Hub v1.1"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -238,6 +240,7 @@ local pWarp = createTab(2, "🌀 วาร์ป & ตัวละคร")
 
 -- Tab 1: Auto Grill & Automation
 addToggle(pMain, "Auto Grill (ย่าง & เก็บหมูปิ้ง)", "autoGrill")
+addToggle(pMain, "Remote Grill (ย่างได้ทุกที่ ไม่ล็อกกล้อง)", "remoteGrill")
 addToggle(pMain, "Auto Delivery (ส่งเดลิเวอรี่)", "autoDelivery")
 addToggle(pMain, "Auto Bonk Thief (ไล่หวดโจร)", "autoThief")
 addToggle(pMain, "Auto Claim (ของฟรี/Daily)", "autoRewards")
@@ -278,13 +281,37 @@ for i = 1, 8 do
     end)
 end
 
--- Main Auto Grill Loop (Ultra-fast, never burns)
+-- Main Auto Grill Loop (Never burns, Remote Anywhere)
 task.spawn(function()
     while state.alive do
-        task.wait(0.25)
-        if state.autoGrill then
-            local stall = getMyStall()
-            if stall and stall:FindFirstChild("Hitboxes") then
+        task.wait(0.2)
+        local stall = getMyStall()
+        local hrp = getHRP()
+        local pad = stall and stall:FindFirstChild("CookGrillPad")
+
+        if state.autoGrill and stall then
+            -- Bypass distance check by simulating pad touch from anywhere
+            if state.remoteGrill and hrp and pad then
+                pcall(function()
+                    firetouchinterest(hrp, pad, 0)
+                end)
+                -- Unlock camera & hide grill HUD so player is completely free to roam
+                pcall(function()
+                    RunService:UnbindFromRenderStep("MooGrillCam")
+                end)
+                local pg = lp:FindFirstChild("PlayerGui")
+                local gh = pg and pg:FindFirstChild("GrillHUD")
+                if gh and gh.Enabled then
+                    gh.Enabled = false
+                    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+                    if lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
+                        workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid
+                    end
+                end
+            end
+
+            -- Grill & Collect slots
+            if stall:FindFirstChild("Hitboxes") then
                 for _, slot in ipairs(stall.Hitboxes:GetChildren()) do
                     local num = tonumber(slot.Name:match("%d+"))
                     local slotState = slot:GetAttribute("State")
@@ -345,4 +372,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Sell Moo Ping Hub v1.0", "โหลดสำเร็จ! ปิ้งหมูอัตโนมัติเปิดอยู่แล้ว (กด RightShift ซ่อน/เปิด)")
+notify("Sell Moo Ping Hub v1.1", "โหลดสำเร็จ! ย่างระยะไกลเปิดอยู่แล้ว เดินไปไหนก็ได้หมูไม่หยุดปิ้ง")
