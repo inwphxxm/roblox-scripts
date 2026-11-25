@@ -1,4 +1,4 @@
--- Sell Moo Ping Hub v1.1 (Remote Grill Everywhere Edition)
+-- Sell Moo Ping Hub v1.2 (Unfreeze & Full Free Roam Edition)
 -- Game: [UPD] Sell Moo Ping 🍢 (PlaceId: 131921813450863)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -32,11 +32,11 @@ end
 local state = {
     alive = true,
     autoGrill = true,
-    remoteGrill = true, -- ย่างระยะไกล ไม่ต้องยืนหน้าร้าน กล้องไม่ล็อก
+    remoteGrill = true, -- ย่างระยะไกล ไม่ต้องยืนหน้าร้าน
     autoDelivery = true,
     autoThief = true,
     autoRewards = true,
-    speedBoost = false,
+    speedBoost = true,  -- เปิดวิ่งไวเพื่อเดินคล่อง
 }
 env.MooPingState = state
 
@@ -54,6 +54,15 @@ end
 local function getHumanoid()
     local char = lp.Character
     return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function getControls()
+    local pm = lp.PlayerScripts:FindFirstChild("PlayerModule")
+    if pm then
+        local ok, ctrl = pcall(function() return require(pm):GetControls() end)
+        if ok and ctrl then return ctrl end
+    end
+    return nil
 end
 
 local function getMyStall()
@@ -104,7 +113,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🍢 Sell Moo Ping Hub v1.1"
+titleBar.Text = "  🍢 Sell Moo Ping Hub v1.2"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -240,7 +249,7 @@ local pWarp = createTab(2, "🌀 วาร์ป & ตัวละคร")
 
 -- Tab 1: Auto Grill & Automation
 addToggle(pMain, "Auto Grill (ย่าง & เก็บหมูปิ้ง)", "autoGrill")
-addToggle(pMain, "Remote Grill (ย่างได้ทุกที่ ไม่ล็อกกล้อง)", "remoteGrill")
+addToggle(pMain, "Remote Grill (ย่างได้ทุกที่ เดินได้อิสระ)", "remoteGrill")
 addToggle(pMain, "Auto Delivery (ส่งเดลิเวอรี่)", "autoDelivery")
 addToggle(pMain, "Auto Bonk Thief (ไล่หวดโจร)", "autoThief")
 addToggle(pMain, "Auto Claim (ของฟรี/Daily)", "autoRewards")
@@ -258,6 +267,15 @@ end)
 
 -- Tab 2: Warps & Movement
 addToggle(pWarp, "Speed Boost (วิ่งไว 38)", "speedBoost")
+
+addButton(pWarp, "🔓 ปลดล็อกตัวละคร (Unfreeze)", Color3.fromRGB(145, 52, 56), function()
+    local hrp = getHRP()
+    if hrp then hrp.Anchored = false end
+    local ctrl = getControls()
+    if ctrl then ctrl:Enable() end
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    notify("Moo Ping Hub", "ปลดล็อกตัวละครและมุมกล้องแล้ว!")
+end)
 
 addButton(pWarp, "🏠 วาร์ปกลับร้านตัวเอง (My Stall)", Color3.fromRGB(48, 64, 92), function()
     pcall(function() GoHome:FireServer() end)
@@ -281,6 +299,46 @@ for i = 1, 8 do
     end)
 end
 
+-- Continuous Anti-Freeze / Anti-Lock Loop (Runs on Heartbeat)
+RunService.Heartbeat:Connect(function()
+    if not state.alive then return end
+
+    local hrp = getHRP()
+    local hum = getHumanoid()
+
+    -- 1. Enforce Unanchor so game never freezes player
+    if hrp and hrp.Anchored then
+        hrp.Anchored = false
+    end
+
+    -- 2. Enforce Controls Enabled
+    local ctrl = getControls()
+    if ctrl and not ctrl.enabled then
+        pcall(function() ctrl:Enable() end)
+    end
+
+    -- 3. Enforce Normal Camera
+    if state.remoteGrill then
+        pcall(function()
+            RunService:UnbindFromRenderStep("MooGrillCam")
+        end)
+        local pg = lp:FindFirstChild("PlayerGui")
+        local gh = pg and pg:FindFirstChild("GrillHUD")
+        if gh and gh.Enabled then
+            gh.Enabled = false
+            workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+            if hum then
+                workspace.CurrentCamera.CameraSubject = hum
+            end
+        end
+    end
+
+    -- 4. Speed Boost
+    if hum and state.speedBoost and hum.WalkSpeed < 35 then
+        hum.WalkSpeed = 38
+    end
+end)
+
 -- Main Auto Grill Loop (Never burns, Remote Anywhere)
 task.spawn(function()
     while state.alive do
@@ -290,24 +348,11 @@ task.spawn(function()
         local pad = stall and stall:FindFirstChild("CookGrillPad")
 
         if state.autoGrill and stall then
-            -- Bypass distance check by simulating pad touch from anywhere
+            -- Bypass distance check by pulsing simulated pad touch
             if state.remoteGrill and hrp and pad then
                 pcall(function()
                     firetouchinterest(hrp, pad, 0)
                 end)
-                -- Unlock camera & hide grill HUD so player is completely free to roam
-                pcall(function()
-                    RunService:UnbindFromRenderStep("MooGrillCam")
-                end)
-                local pg = lp:FindFirstChild("PlayerGui")
-                local gh = pg and pg:FindFirstChild("GrillHUD")
-                if gh and gh.Enabled then
-                    gh.Enabled = false
-                    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-                    if lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
-                        workspace.CurrentCamera.CameraSubject = lp.Character.Humanoid
-                    end
-                end
             end
 
             -- Grill & Collect slots
@@ -349,18 +394,14 @@ task.spawn(function()
     end
 end)
 
--- Rewards & Speed Loop
+-- Rewards Loop
 task.spawn(function()
     while state.alive do
-        task.wait(2.0)
+        task.wait(3.0)
         if state.autoRewards then
             pcall(function() Daily:InvokeServer() end)
             pcall(function() Playtime:InvokeServer() end)
             pcall(function() FreeReward:InvokeServer() end)
-        end
-        local hum = getHumanoid()
-        if hum and state.speedBoost then
-            hum.WalkSpeed = 38
         end
     end
 end)
@@ -372,4 +413,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Sell Moo Ping Hub v1.1", "โหลดสำเร็จ! ย่างระยะไกลเปิดอยู่แล้ว เดินไปไหนก็ได้หมูไม่หยุดปิ้ง")
+notify("Sell Moo Ping Hub v1.2", "ปลดล็อกตัวละครแล้ว! เดิน ขี่รถ เล่นได้ตามปกติเลยครับ")
