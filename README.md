@@ -11,3 +11,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scrip
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/pet-hunt-party-hub.lua"))()
 ```
+
+## Sell Moo Ping Hub v1.0 (`[UPD] Sell Moo Ping 🍢`)
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/inwphxxm/roblox-scripts/main/sell-moo-ping-hub.lua"))()
+```
