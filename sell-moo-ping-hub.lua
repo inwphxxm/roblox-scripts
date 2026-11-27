@@ -1,4 +1,4 @@
--- Sell Moo Ping Hub v2.0 (Ultimate All-in-One Edition)
+-- Sell Moo Ping Hub v3.0 (Overpowered God Edition)
 -- Game: [UPD] Sell Moo Ping 🍢 (PlaceId: 131921813450863)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -26,6 +26,9 @@ local Staff = MooRemotes:WaitForChild("Staff")
 local MoneyRain = MooRemotes:WaitForChild("MoneyRain")
 local LitterMop = MooRemotes:WaitForChild("LitterMop")
 local RedeemCode = MooRemotes:WaitForChild("RedeemCode")
+local Tour = MooRemotes:FindFirstChild("Tour")
+local TourState = MooRemotes:FindFirstChild("TourState")
+local KitchenCrewUp = MooRemotes:FindFirstChild("KitchenCrewUp")
 
 -- Cleanup old instance
 local oldGui = CoreGui:FindFirstChild("SellMooPingHubGui")
@@ -38,6 +41,8 @@ end
 
 local state = {
     alive = true,
+    autoBuyPads = true,
+    autoTour = true,
     autoPhone = true,
     autoGrill = true,
     remoteGrill = false,
@@ -46,8 +51,10 @@ local state = {
     autoCleanPlates = true,
     autoMissions = true,
     autoRewards = true,
-    autoStaffUpgrade = false,
+    autoStaffUpgrade = true,
+    autoKitchenCrew = true,
     autoMoneyRain = true,
+    noclip = false,
     instantPrompt = true,
     speedBoost = true,
     infJump = false,
@@ -80,6 +87,12 @@ local function getControls()
     return nil
 end
 
+local function getCash()
+    local leaderstats = lp:FindFirstChild("leaderstats")
+    local cash = leaderstats and leaderstats:FindFirstChild("Cash")
+    return cash and cash.Value or 0
+end
+
 local function getMyStall()
     local plotId = lp:GetAttribute("PlotId")
     local stalls = workspace:FindFirstChild("Stalls")
@@ -89,9 +102,13 @@ local function getMyStall()
             if byId then return byId end
         end
         for _, s in ipairs(stalls:GetChildren()) do
-            if s:GetAttribute("Owner") == lp.Name then
+            if s:GetAttribute("Owner") == lp.Name or s:GetAttribute("Owner") == lp.UserId then
                 return s
             end
+        end
+        local plot1 = stalls:FindFirstChild("Plot1")
+        if plot1 and (plot1:GetAttribute("Owner") == lp.Name or plot1:GetAttribute("Owner") == lp.UserId) then
+            return plot1
         end
     end
     return nil
@@ -105,8 +122,8 @@ gui.Parent = CoreGui
 
 local mf = Instance.new("Frame")
 mf.Name = "MainFrame"
-mf.Size = UDim2.new(0, 330, 0, 420)
-mf.Position = UDim2.new(1, -350, 1, -440)
+mf.Size = UDim2.new(0, 340, 0, 440)
+mf.Position = UDim2.new(1, -360, 1, -460)
 mf.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 mf.BorderSizePixel = 0
 mf.Active = true
@@ -128,7 +145,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🍢 Sell Moo Ping Hub v2.0"
+titleBar.Text = "  🍢 Sell Moo Ping Hub v3.0 (GOD)"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -179,7 +196,7 @@ local function createTab(idx, text)
     tb.Font = Enum.Font.SourceSansSemibold
     tb.Text = text
     tb.TextColor3 = Color3.fromRGB(224, 230, 240)
-    tb.TextSize = 13
+    tb.TextSize = 12
     tb.Parent = tabBar
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, 6)
@@ -223,7 +240,7 @@ local function addButton(parent, text, color, callback)
     b.Font = Enum.Font.SourceSansSemibold
     b.Text = text
     b.TextColor3 = Color3.fromRGB(224, 230, 240)
-    b.TextSize = 14
+    b.TextSize = 13
     b.LayoutOrder = orderCounter
     b.Parent = parent
 
@@ -260,26 +277,29 @@ end
 
 -- Tabs
 local pMain = createTab(1, "🍢 ออโต้หลัก")
-local pExtra = createTab(2, "✨ เสริม/ร้าน")
-local pWarp = createTab(3, "🌀 วาร์ป/ตัว")
+local pTycoon = createTab(2, "🏗️ ไทคูน/พนักงาน")
+local pWarp = createTab(3, "🌀 วาร์ป/โกงตัว")
 
 -- Tab 1: Core Automation
-addToggle(pMain, "Auto Phone (รับออเดอร์+เพิ่มราคา)", "autoPhone")
+addToggle(pMain, "Auto Phone (รับออเดอร์+ต่อราคา)", "autoPhone")
+addToggle(pMain, "Auto Tour Bus (ออโต้รับรถทัวร์กวาดเงิน)", "autoTour")
 addToggle(pMain, "Auto Grill (ปิ้งทุกเตา หน้าร้าน+ครัว)", "autoGrill")
 addToggle(pMain, "Remote Grill (ย่างระยะไกล)", "remoteGrill")
-addToggle(pMain, "Auto Delivery (ส่งเดลิเวอรี่)", "autoDelivery")
+addToggle(pMain, "Auto Delivery (โหลดส่งเดลิเวอรี่)", "autoDelivery")
 addToggle(pMain, "Auto Bonk Thief (ตีโจร KillAura)", "autoThief")
 addToggle(pMain, "Auto Clean & Plates (กวาดขยะ/จาน)", "autoCleanPlates")
-addToggle(pMain, "Auto Money Rain (เก็บฝนเงิน)", "autoMoneyRain")
+addToggle(pMain, "Auto Money Rain (ดูดฝนเงิน)", "autoMoneyRain")
 
--- Tab 2: Shop / Missions / Staff / Codes
-addToggle(pExtra, "Auto Missions (รับภารกิจอัตโนมัติ)", "autoMissions")
-addToggle(pExtra, "Auto Claim (Daily/Playtime/Gift)", "autoRewards")
-addToggle(pExtra, "Auto Upgrade Staff (อัปพนักงาน)", "autoStaffUpgrade")
-addToggle(pExtra, "Instant Prompts (กดปุ่ม E ทันที)", "instantPrompt")
+-- Tab 2: Tycoon Auto-Builder & Staff
+addToggle(pTycoon, "⚡ Auto-Buy Tycoon Pads (ซื้อสร้างร้าน 100%)", "autoBuyPads")
+addToggle(pTycoon, "Auto Kitchen Crew (จ้าง/อัปเกรดครัว)", "autoKitchenCrew")
+addToggle(pTycoon, "Auto Upgrade Staff (อัปพนักงานทั่วไป)", "autoStaffUpgrade")
+addToggle(pTycoon, "Auto Missions (รับภารกิจ)", "autoMissions")
+addToggle(pTycoon, "Auto Claim (Daily/Playtime/FreeGift)", "autoRewards")
+addToggle(pTycoon, "Instant Prompts (กดปุ่ม E ทันที)", "instantPrompt")
 
-addButton(pExtra, "🎁 กดรับ Missions & ของฟรีทันที", Color3.fromRGB(44, 82, 58), function()
-    pcall(function() Daily:InvokeServer() end)
+addButton(pTycoon, "🎁 เคลมภารกิจ & ของขวัญฟรีทั้งหมด", Color3.fromRGB(44, 82, 58), function()
+    pcall(function() Daily:InvokeServer("claim") end)
     pcall(function() Playtime:InvokeServer() end)
     pcall(function() FreeReward:InvokeServer("claim") end)
     pcall(function()
@@ -291,10 +311,10 @@ addButton(pExtra, "🎁 กดรับ Missions & ของฟรีทัน�
         end
         Missions:InvokeServer("bonus")
     end)
-    notify("Moo Ping Hub", "รับรางวัลภารกิจและของฟรีแล้ว!")
+    notify("Moo Ping Hub", "เคลมรางวัลภารกิจและของขวัญเรียบร้อย!")
 end)
 
-addButton(pExtra, "🛹 เปิด/ปิด Hoverboard", Color3.fromRGB(48, 64, 92), function()
+addButton(pTycoon, "🛹 เปิด/ปิด Hoverboard", Color3.fromRGB(48, 64, 92), function()
     pcall(function() HoverBoard:FireServer("toggle") end)
 end)
 
@@ -308,14 +328,14 @@ codeBox.Font = Enum.Font.SourceSansSemibold
 codeBox.PlaceholderText = "พิมพ์โค้ดที่นี่ (Promo Code)..."
 codeBox.Text = ""
 codeBox.TextColor3 = Color3.fromRGB(224, 230, 240)
-codeBox.TextSize = 14
+codeBox.TextSize = 13
 codeBox.LayoutOrder = orderCounter
-codeBox.Parent = pExtra
+codeBox.Parent = pTycoon
 local cbc = Instance.new("UICorner")
 cbc.CornerRadius = UDim.new(0, 6)
 cbc.Parent = codeBox
 
-addButton(pExtra, "🎟️ แลกโค้ด (Redeem Code)", Color3.fromRGB(68, 58, 102), function()
+addButton(pTycoon, "🎟️ แลกโค้ด (Redeem Code)", Color3.fromRGB(68, 58, 102), function()
     local code = codeBox.Text:match("^%s*(.-)%s*$")
     if code ~= "" then
         local ok, res = pcall(function() return RedeemCode:InvokeServer(code) end)
@@ -325,8 +345,9 @@ addButton(pExtra, "🎟️ แลกโค้ด (Redeem Code)", Color3.fromRGB(
     end
 end)
 
--- Tab 3: Warps & Movement
-addToggle(pWarp, "Speed Boost (วิ่งไว 38)", "speedBoost")
+-- Tab 3: Warps, Movement & Exploits
+addToggle(pWarp, "Noclip (เดินทะลุกำแพง/สิ่งกีดขวาง)", "noclip")
+addToggle(pWarp, "Hyper Speed (วิ่งไวติดจรวด 45)", "speedBoost")
 addToggle(pWarp, "High Jump (กระโดดสูง 85)", "highJump")
 addToggle(pWarp, "Infinite Jump (กระโดดกลางอากาศ)", "infJump")
 
@@ -365,19 +386,30 @@ end
 Phone.OnClientEvent:Connect(function(action, data)
     if not state.alive or not state.autoPhone then return end
     if action == "offer" and type(data) == "table" and data.id then
-        task.wait(0.3)
+        task.wait(0.2)
         pcall(function() Phone:FireServer("more", data.id) end)
-        task.wait(1.2)
+        task.wait(1.0)
         pcall(function() Phone:FireServer("accept", data.id) end)
         notify("📞 Phone Order", "รับออเดอร์ล็อตใหญ่เรียบร้อย!")
     elseif action == "raised" and type(data) == "table" and data.id then
-        task.wait(0.3)
+        task.wait(0.2)
         pcall(function() Phone:FireServer("accept", data.id) end)
         notify("📞 Phone Order", "ต่อราคาสำเร็จ! กดยืนยันรับเงินแล้ว")
     end
 end)
 
--- 2. Auto Money Rain Listener
+-- 2. Auto Tour Bus Listener
+if TourState and Tour then
+    TourState.OnClientEvent:Connect(function(bus)
+        if state.alive and state.autoTour then
+            task.wait(0.3)
+            pcall(function() Tour:InvokeServer("accept") end)
+            notify("🚌 Tour Bus", "รถทัวร์มาถึงแล้ว! กดรับนักท่องเที่ยวกวาดเงินทันที")
+        end
+    end)
+end
+
+-- 3. Auto Money Rain Listener
 MoneyRain.OnClientEvent:Connect(function(id, count)
     if not state.alive or not state.autoMoneyRain then return end
     if id then
@@ -388,7 +420,7 @@ MoneyRain.OnClientEvent:Connect(function(id, count)
     end
 end)
 
--- 3. Infinite Jump Listener
+-- 4. Infinite Jump Listener
 UserInputService.JumpRequest:Connect(function()
     if state.alive and state.infJump then
         local hum = getHumanoid()
@@ -396,14 +428,25 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- 4. Instant Proximity Prompts
+-- 5. Instant Proximity Prompts
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if state.alive and state.instantPrompt then
         prompt.HoldDuration = 0
     end
 end)
 
--- 5. Heartbeat Anti-Freeze & Movement
+-- 6. Noclip Loop
+RunService.Stepped:Connect(function()
+    if state.alive and state.noclip and lp.Character then
+        for _, part in ipairs(lp.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- 7. Heartbeat Anti-Freeze & Movement Loop
 RunService.Heartbeat:Connect(function()
     if not state.alive then return end
     local hrp = getHRP()
@@ -427,7 +470,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
     if hum then
-        if state.speedBoost and hum.WalkSpeed < 35 then hum.WalkSpeed = 38 end
+        if state.speedBoost and hum.WalkSpeed < 40 then hum.WalkSpeed = 45 end
         if state.highJump then
             hum.UseJumpPower = true
             hum.JumpPower = 85
@@ -435,7 +478,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 6. Main Auto Grill Loop (Stall + CookGrill + HouseGrill)
+-- 8. Main Auto Grill Loop (Stall + CookGrill + HouseGrill)
 local function processGrillTarget(target, pad)
     if not target then return end
     local hrp = getHRP()
@@ -479,13 +522,53 @@ task.spawn(function()
     end
 end)
 
--- 7. Delivery, Thief, Litter & Plates Loop
+-- 9. Auto-Buy Tycoon Pads Loop (God-Tier Feature)
+task.spawn(function()
+    while state.alive do
+        task.wait(1.5)
+        if state.autoBuyPads then
+            local stall = getMyStall()
+            local hrp = getHRP()
+            if stall and hrp then
+                local currentCash = getCash()
+                local cheapestPad = nil
+                local minPrice = math.huge
+
+                for _, child in ipairs(stall:GetChildren()) do
+                    local price = child:GetAttribute("Price")
+                    local shown = child:GetAttribute("Shown")
+                    if shown and price and type(price) == "number" and price > 0 and price <= currentCash then
+                        if price < minPrice then
+                            minPrice = price
+                            cheapestPad = child
+                        end
+                    end
+                end
+
+                if cheapestPad then
+                    local origCF = hrp.CFrame
+                    local ground = cheapestPad:GetAttribute("Ground")
+                    local targetPos = (ground and ground.Position) or cheapestPad.Position
+                    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 2.5, 0))
+                    task.wait(0.35)
+                    hrp.CFrame = origCF
+                    task.wait(0.4)
+                end
+            end
+        end
+    end
+end)
+
+-- 10. Delivery, Thief, Litter & Plates Loop
 task.spawn(function()
     while state.alive do
         task.wait(0.8)
         if state.autoDelivery then
             pcall(function() DeliveryAction:InvokeServer("load") end)
             pcall(function() DeliveryAction:InvokeServer("sell") end)
+        end
+        if state.autoTour and Tour then
+            pcall(function() Tour:InvokeServer("accept") end)
         end
         if state.autoThief then
             local thieves = workspace:FindFirstChild("Thieves")
@@ -520,12 +603,12 @@ task.spawn(function()
     end
 end)
 
--- 8. Rewards, Missions & Staff Auto-Upgrade Loop
+-- 11. Rewards, Missions & Staff Auto-Upgrade Loop
 task.spawn(function()
     while state.alive do
-        task.wait(4.0)
+        task.wait(3.5)
         if state.autoRewards then
-            pcall(function() Daily:InvokeServer() end)
+            pcall(function() Daily:InvokeServer("claim") end)
             pcall(function() Playtime:InvokeServer() end)
             pcall(function() FreeReward:InvokeServer("claim") end)
         end
@@ -547,6 +630,13 @@ task.spawn(function()
                 pcall(function() Staff:InvokeServer("upgrade", job) end)
             end
         end
+        if state.autoKitchenCrew and KitchenCrewUp then
+            pcall(function()
+                for _, k in ipairs({"dish", "grill", "pack"}) do
+                    KitchenCrewUp:InvokeServer("buy", k, 1, 1)
+                end
+            end)
+        end
     end
 end)
 
@@ -557,4 +647,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Sell Moo Ping Hub v2.0", "อัปเกรดครบทุกฟังก์ชันแล้ว! กด RightShift ซ่อน/แสดง")
+notify("Sell Moo Ping Hub v3.0", "Overpowered Edition ทำงานแล้ว! กด RightShift ซ่อน/แสดง")
