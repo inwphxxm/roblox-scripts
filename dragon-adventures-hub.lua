@@ -4,7 +4,8 @@
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
+local CoreGui
+pcall(function() CoreGui = game:GetService("CoreGui") end)
 local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
