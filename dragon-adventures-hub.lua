@@ -4,27 +4,12 @@
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
-local CoreGui
-pcall(function() CoreGui = game:GetService("CoreGui") end)
 local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
-
-local parentGui
-if gethui then
-    parentGui = gethui()
-else
-    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
-    if ok and cg then
-        local ok2 = pcall(function() local test = Instance.new("Folder", cg); test:Destroy() end)
-        if ok2 then parentGui = cg end
-    end
-end
-if not parentGui then
-    parentGui = lp:WaitForChild("PlayerGui")
-end
+local parentGui = lp:WaitForChild("PlayerGui")
 
 -- Sonar Services & Remotes
 local Sonar = require(RS:WaitForChild("Sonar"))
