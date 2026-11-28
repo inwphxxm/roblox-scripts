@@ -11,6 +11,20 @@ local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 
+local parentGui
+if gethui then
+    parentGui = gethui()
+else
+    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok and cg then
+        local ok2 = pcall(function() local test = Instance.new("Folder", cg); test:Destroy() end)
+        if ok2 then parentGui = cg end
+    end
+end
+if not parentGui then
+    parentGui = lp:WaitForChild("PlayerGui")
+end
+
 -- Sonar Services & Remotes
 local Sonar = require(RS:WaitForChild("Sonar"))
 local RemoteUtils = Sonar("RemoteUtils")
@@ -21,7 +35,7 @@ local UnlockTreasureChestRemote = RemoteUtils.GetRemoteFunction("UnlockTreasureC
 local EggNestClass = require(RS:WaitForChild("_replicationFolder"):WaitForChild("EggNestClass"))
 
 -- Cleanup old instance
-local oldGui = CoreGui:FindFirstChild("DragonAdventuresHubGui")
+local oldGui = parentGui:FindFirstChild("DragonAdventuresHubGui")
 if oldGui then oldGui:Destroy() end
 
 local env = getgenv and getgenv() or _G
@@ -63,7 +77,7 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "DragonAdventuresHubGui"
 gui.ResetOnSpawn = false
-gui.Parent = CoreGui
+gui.Parent = parentGui
 
 local mf = Instance.new("Frame")
 mf.Name = "MainFrame"
