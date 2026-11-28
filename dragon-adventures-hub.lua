@@ -1,4 +1,4 @@
--- Dragon Adventures Hub v1.0 (Ultimate Dragon Master Edition)
+-- Dragon Adventures Hub v2.0 (Auto Quest Runner & Full Auto-Farm Engine)
 -- Game: [GUILD WARS] Dragon Adventures 🐉 (PlaceId: 3475397644)
 -- Clean Dark Slate UI (SourceSansSemibold, Border Stroke, Draggable)
 
@@ -31,6 +31,9 @@ end
 
 local state = {
     alive = true,
+    fullAutoFarm = false,
+    autoQuests = true,
+    autoClaimRewards = true,
     autoEggs = false,
     autoChests = false,
     autoMobs = false,
@@ -38,8 +41,8 @@ local state = {
     noclip = false,
     fly = false,
     infJump = false,
-    flySpeed = 60,
-    walkSpeed = 45,
+    flySpeed = 65,
+    walkSpeed = 48,
 }
 env.DragonHubState = state
 
@@ -67,8 +70,8 @@ gui.Parent = parentGui
 
 local mf = Instance.new("Frame")
 mf.Name = "MainFrame"
-mf.Size = UDim2.new(0, 340, 0, 440)
-mf.Position = UDim2.new(1, -360, 1, -460)
+mf.Size = UDim2.new(0, 340, 0, 450)
+mf.Position = UDim2.new(1, -360, 1, -470)
 mf.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 mf.BorderSizePixel = 0
 mf.Active = true
@@ -90,7 +93,7 @@ titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 titleBar.BorderSizePixel = 0
 titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Text = "  🐉 Dragon Adventures Hub v1.0"
+titleBar.Text = "  🐉 Dragon Adventures Hub v2.0"
 titleBar.TextColor3 = Color3.fromRGB(215, 224, 238)
 titleBar.TextSize = 15
 titleBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -221,13 +224,61 @@ local function addToggle(parent, label, key)
 end
 
 -- Tabs
-local pFarm = createTab(1, "🥚 ไข่ & สมบัติ")
-local pCombat = createTab(2, "⚔️ มอนสเตอร์")
-local pMove = createTab(3, "🌀 บิน/วาร์ป")
+local pQuest = createTab(1, "📜 เควส & ภารกิจ")
+local pFarm = createTab(2, "🌾 ออโต้ฟาร์ม")
+local pMove = createTab(3, "🌀 บิน & โกงตัว")
 
--- ==================== TAB 1: EGGS & CHESTS ====================
+-- ==================== TAB 1: QUESTS & MISSIONS ====================
+addToggle(pQuest, "Auto Accept Quests (รับเควส NPC ออโต้)", "autoQuests")
+addToggle(pQuest, "Auto Claim Rewards (เคลมรางวัลเควสทันที)", "autoClaimRewards")
+
+addButton(pQuest, "🎁 กดเคลมเควส & ภารกิจที่เสร็จทั้งหมด", Color3.fromRGB(44, 82, 58), function()
+    local pg = lp:FindFirstChild("PlayerGui")
+    local count = 0
+    if pg then
+        local qmg = pg:FindFirstChild("QuestMapGui")
+        if qmg then
+            for _, b in ipairs(qmg:GetDescendants()) do
+                if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and b.Name:lower():find("claim") then
+                    if firesignal then pcall(function() firesignal(b.MouseButton1Click) end) end
+                    count += 1
+                end
+            end
+        end
+        local npcGui = pg:FindFirstChild("DynamicNPCQuestsGui")
+        if npcGui then
+            for _, b in ipairs(npcGui:GetDescendants()) do
+                if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and b.Name:lower():find("claim") then
+                    if firesignal then pcall(function() firesignal(b.MouseButton1Click) end) end
+                    count += 1
+                end
+            end
+        end
+    end
+    notify("Quests", "เคลมรางวัลเควสทั้งหมดเรียบร้อย!")
+end)
+
+addButton(pQuest, "🧙 วาร์ปไปหา Rodger (NPC เควสหลัก)", Color3.fromRGB(48, 64, 92), function()
+    local hrp = getHRP()
+    if hrp then
+        hrp.CFrame = CFrame.new(-344, 126, 107)
+        notify("NPC Warp", "วาร์ปไปหา Rodger แล้ว!")
+    end
+end)
+
+addButton(pQuest, "📮 วาร์ปไปตู้จดหมาย (Mailbox)", Color3.fromRGB(36, 40, 52), function()
+    local hrp = getHRP()
+    if hrp then
+        hrp.CFrame = CFrame.new(-213, 125, 170)
+        notify("Warp", "วาร์ปไปตู้จดหมายแล้ว!")
+    end
+end)
+
+-- ==================== TAB 2: AUTO FARM ====================
+addToggle(pFarm, "⭐ Full-Auto Farm Cycle (ลูปฟาร์ม AFK 100%)", "fullAutoFarm")
 addToggle(pFarm, "Auto Collect Eggs (ข้ามมินิเกมขุดดิน)", "autoEggs")
 addToggle(pFarm, "Auto Open Chests (เปิดกล่องสมบัติ)", "autoChests")
+addToggle(pFarm, "Auto Farm Mobs (ลอยตัวพ่นไฟฟาร์ม)", "autoMobs")
 
 addButton(pFarm, "⚡ กวาดเก็บไข่ทั้งหมดรอบแมพทันที", Color3.fromRGB(44, 82, 58), function()
     local hrp = getHRP()
@@ -275,27 +326,10 @@ addButton(pFarm, "💎 วาร์ปเปิดกล่องสมบัต
     notify("Chest Sweeper", "เปิดกล่องสมบัติเสร็จสิ้น: " .. tostring(opened) .. " กล่อง!")
 end)
 
--- ==================== TAB 2: COMBAT & MOBS ====================
-addToggle(pCombat, "Auto Farm Mobs (ลอยตัวพ่นไฟฟาร์ม)", "autoMobs")
-
-addButton(pCombat, "🔥 พ่นไฟมังกรทันที (Dragon Breath)", Color3.fromRGB(145, 52, 56), function()
-    local dragon = lp.Character and lp.Character:FindFirstChild("Dragon")
-    local remotes = dragon and dragon:FindFirstChild("RemotesFolder")
-    local breathRemote = remotes and remotes:FindFirstChild("BreathFireRemote")
-    if breathRemote then
-        breathRemote:FireServer(true)
-        task.wait(1.5)
-        breathRemote:FireServer(false)
-        notify("Dragon Breath", "พ่นไฟโจมตีแล้ว!")
-    else
-        notify("Dragon Breath", "ไม่พบมังกรที่ขี่อยู่ กรุณาเรียกมังกรก่อนครับ")
-    end
-end)
-
 -- ==================== TAB 3: MOVEMENT & WARPS ====================
 addToggle(pMove, "Fly Hack (บินอิสระ WASD/Space/Shift)", "fly")
 addToggle(pMove, "Noclip (เดินทะลุกำแพง/ภูเขา)", "noclip")
-addToggle(pMove, "Speed Boost (วิ่งไว 45)", "speedBoost")
+addToggle(pMove, "Speed Boost (วิ่งไว 48)", "speedBoost")
 addToggle(pMove, "Infinite Jump (กระโดดกลางอากาศ)", "infJump")
 
 addButton(pMove, "🏠 วาร์ปไป Origins World (เมืองหลัก)", Color3.fromRGB(36, 40, 52), function()
@@ -308,11 +342,108 @@ addButton(pMove, "❄️ วาร์ปไป Tundra World (ทุ่งหิ�
     if hrp then hrp.CFrame = CFrame.new(2470, 580, 1530) end
 end)
 
--- 1. Auto Collect Eggs Loop
+-- 1. Auto Accept Quests & Auto Claim Finished Tasks Loop
+task.spawn(function()
+    while state.alive do
+        task.wait(1.5)
+        local pg = lp:FindFirstChild("PlayerGui")
+        if pg and (state.autoQuests or state.autoClaimRewards) then
+            -- Check DynamicNPCQuestsGui (Archie, Valeria, Rodger, Patrick)
+            local npcGui = pg:FindFirstChild("DynamicNPCQuestsGui")
+            if npcGui and npcGui.Enabled then
+                for _, b in ipairs(npcGui:GetDescendants()) do
+                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible then
+                        local n = b.Name:lower()
+                        if state.autoQuests and n:find("accept") then
+                            if firesignal then pcall(function() firesignal(b.MouseButton1Click) end) end
+                        elseif state.autoClaimRewards and n:find("claim") then
+                            if firesignal then pcall(function() firesignal(b.MouseButton1Click) end) end
+                        end
+                    end
+                end
+            end
+
+            -- Check QuestMapGui (Missions, Tasks, Seasons, GuildWars)
+            local qmg = pg:FindFirstChild("QuestMapGui")
+            if qmg and state.autoClaimRewards then
+                for _, b in ipairs(qmg:GetDescendants()) do
+                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and b.Name:lower():find("claim") then
+                        if firesignal then pcall(function() firesignal(b.MouseButton1Click) end) end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- 2. Full-Auto Farm Cycle Loop (AFK 100%)
+task.spawn(function()
+    while state.alive do
+        task.wait(2.0)
+        if state.fullAutoFarm then
+            local hrp = getHRP()
+            if hrp then
+                -- Step A: Collect all available eggs
+                local nests = EggNestClass.GetAll()
+                for _, nest in pairs(nests) do
+                    if not state.fullAutoFarm or not state.alive then break end
+                    if not nest.Harvested and nest.NestIndex then
+                        local pos = nest.EggPosition or (nest.CFrame and nest.CFrame.Position)
+                        if pos then
+                            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+                            task.wait(0.3)
+                            pcall(function() SetCollectEggRemote:InvokeServer(nest.NestIndex) end)
+                            task.wait(0.4)
+                            pcall(function() CollectEggRemote:InvokeServer(nest.NestIndex) end)
+                            task.wait(0.3)
+                        end
+                    end
+                end
+
+                -- Step B: Unlock all available treasure chests
+                local treasureFolder = workspace:FindFirstChild("Interactions") and workspace.Interactions:FindFirstChild("Nodes") and workspace.Interactions.Nodes:FindFirstChild("Treasure")
+                if treasureFolder and state.fullAutoFarm and state.alive then
+                    for _, chest in ipairs(treasureFolder:GetChildren()) do
+                        if not state.fullAutoFarm or not state.alive then break end
+                        if chest:IsA("BasePart") then
+                            hrp.CFrame = chest.CFrame + Vector3.new(0, 3, 0)
+                            task.wait(0.3)
+                            pcall(function() UnlockTreasureChestRemote:InvokeServer(chest) end)
+                            task.wait(0.3)
+                        end
+                    end
+                end
+
+                -- Step C: Hunt 2-3 nearby mobs for EXP & meat
+                local mobFolder = workspace:FindFirstChild("MobFolder")
+                if mobFolder and state.fullAutoFarm and state.alive then
+                    local mobs = mobFolder:GetChildren()
+                    for i = 1, math.min(3, #mobs) do
+                        local mob = mobs[i]
+                        if mob and mob:IsA("Model") and mob.PrimaryPart then
+                            hrp.CFrame = mob.PrimaryPart.CFrame + Vector3.new(0, 10, 0)
+                            local dragon = lp.Character and lp.Character:FindFirstChild("Dragon")
+                            local remotes = dragon and dragon:FindFirstChild("RemotesFolder")
+                            local breathRemote = remotes and remotes:FindFirstChild("BreathFireRemote")
+                            if breathRemote then
+                                breathRemote:FireServer(true)
+                                task.wait(1.2)
+                                breathRemote:FireServer(false)
+                            end
+                            task.wait(0.3)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- 3. Individual Auto Collect Eggs Loop
 task.spawn(function()
     while state.alive do
         task.wait(2.5)
-        if state.autoEggs then
+        if state.autoEggs and not state.fullAutoFarm then
             local hrp = getHRP()
             if hrp then
                 local nests = EggNestClass.GetAll()
@@ -338,11 +469,11 @@ task.spawn(function()
     end
 end)
 
--- 2. Auto Unlock Treasure Chests Loop
+-- 4. Individual Auto Unlock Treasure Chests Loop
 task.spawn(function()
     while state.alive do
         task.wait(5.0)
-        if state.autoChests then
+        if state.autoChests and not state.fullAutoFarm then
             local hrp = getHRP()
             local treasureFolder = workspace:FindFirstChild("Interactions") and workspace.Interactions:FindFirstChild("Nodes") and workspace.Interactions.Nodes:FindFirstChild("Treasure")
             if hrp and treasureFolder then
@@ -363,11 +494,11 @@ task.spawn(function()
     end
 end)
 
--- 3. Auto Mob Farm Loop
+-- 5. Individual Auto Mob Farm Loop
 task.spawn(function()
     while state.alive do
         task.wait(0.8)
-        if state.autoMobs then
+        if state.autoMobs and not state.fullAutoFarm then
             local hrp = getHRP()
             local mobFolder = workspace:FindFirstChild("MobFolder")
             if hrp and mobFolder then
@@ -398,7 +529,7 @@ task.spawn(function()
     end
 end)
 
--- 4. Infinite Jump
+-- 6. Infinite Jump
 UserInputService.JumpRequest:Connect(function()
     if state.alive and state.infJump then
         local hum = getHumanoid()
@@ -406,7 +537,7 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- 5. Noclip Loop
+-- 7. Noclip Loop
 RunService.Stepped:Connect(function()
     if state.alive and state.noclip and lp.Character then
         for _, part in ipairs(lp.Character:GetDescendants()) do
@@ -417,7 +548,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- 6. Movement & Speed Loop
+-- 8. Movement & Speed Loop
 RunService.Heartbeat:Connect(function()
     if not state.alive then return end
     local hum = getHumanoid()
@@ -426,7 +557,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 7. Fly Hack System (BodyVelocity + BodyGyro)
+-- 9. Fly Hack System (BodyVelocity + BodyGyro)
 local bv, bg
 local flying = false
 
@@ -508,4 +639,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-notify("Dragon Adventures Hub", "โหลดสำเร็จแล้ว! กด RightShift เพื่อซ่อน/แสดง")
+notify("Dragon Adventures Hub v2.0", "Auto Quest Runner & Full Farm โหลดแล้ว! กด RightShift ซ่อน/แสดง")
